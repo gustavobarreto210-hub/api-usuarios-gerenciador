@@ -118,61 +118,6 @@ nano main.py
 
 ---
 
-## 💻 Código inicial
-
-```python
-from fastapi import FastAPI
-from pydantic import BaseModel
-import uuid
-
-app = FastAPI()
-
-class Usuario(BaseModel):
-    nome: str
-    email: str
-    idade: int
-
-usuarios = []
-
-@app.get("/usuarios")
-def listar_usuarios():
-    return usuarios
-
-@app.get("/usuarios/{usuario_id}")
-def buscar_usuario(usuario_id: str):
-    for usuario in usuarios:
-        if usuario["id"] == usuario_id:
-            return usuario
-    return {"erro": "Usuário não encontrado"}
-
-@app.post("/usuarios")
-def criar_usuario(usuario: Usuario):
-    novo_usuario = usuario.dict()
-    novo_usuario["id"] = str(uuid.uuid4())
-    usuarios.append(novo_usuario)
-    return novo_usuario
-
-@app.put("/usuarios/{usuario_id}")
-def atualizar_usuario(usuario_id: str, dados: Usuario):
-    for usuario in usuarios:
-        if usuario["id"] == usuario_id:
-            usuario["nome"] = dados.nome
-            usuario["email"] = dados.email
-            usuario["idade"] = dados.idade
-            return usuario
-    return {"erro": "Usuário não encontrado"}
-
-@app.delete("/usuarios/{usuario_id}")
-def deletar_usuario(usuario_id: str):
-    for index, usuario in enumerate(usuarios):
-        if usuario["id"] == usuario_id:
-            usuarios.pop(index)
-            return {"mensagem": "Usuário deletado"}
-    return {"erro": "Usuário não encontrado"}
-```
-
----
-
 # 🚀 Executar a API
 
 ```bash
@@ -198,6 +143,43 @@ http://127.0.0.1:8000/docs
 * POST /usuarios
 * PUT /usuarios/{id}
 * DELETE /usuarios/{id}
+
+---
+
+# 🔄 Status Codes Utilizados
+
+### 🔍 GET /usuarios
+
+* `200 OK` → lista de usuários retornada
+* `204 No Content` → lista vazia
+
+---
+
+### 🔍 GET /usuarios/{id}
+
+* `200 OK` → usuário encontrado
+* `404 Not Found` → usuário não encontrado
+
+---
+
+### ➕ POST /usuarios
+
+* `201 Created` → usuário criado com sucesso
+
+---
+
+### ✏️ PUT /usuarios/{id}
+
+* `200 OK` → usuário atualizado
+* `204 No Content` → nenhuma alteração realizada
+* `404 Not Found` → usuário não encontrado
+
+---
+
+### ❌ DELETE /usuarios/{id}
+
+* `204 No Content` → usuário removido
+* `404 Not Found` → usuário não encontrado
 
 ---
 
