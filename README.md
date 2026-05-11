@@ -202,6 +202,74 @@ http://127.0.0.1:8000/docs
 
 ---
 
+# 📄 Sistema de Logs
+
+A API possui um sistema de logging para registrar eventos importantes durante a execução, permitindo melhor monitoramento e depuração.
+
+---
+
+## 🧠 Objetivo
+
+Registrar:
+
+* Requisições realizadas
+* Ações importantes (criação, atualização, remoção)
+* Erros e situações inesperadas
+
+---
+
+## ⚙️ Configuração
+
+O logger foi configurado utilizando o módulo padrão `logging` do Python:
+
+```python
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    filename="app.log",
+    filemode="a"
+)
+
+logger = logging.getLogger(__name__)
+```
+
+---
+
+## 📊 Níveis de Log Utilizados
+
+* `INFO` → ações normais da aplicação
+* `WARNING` → situações inesperadas (ex: usuário não encontrado)
+
+---
+
+## 📌 Exemplos de Logs
+
+```text
+2026-05-11 12:00:00 - INFO - Criando usuário com email: teste@email.com
+2026-05-11 12:01:00 - INFO - Usuário criado com ID: 123
+2026-05-11 12:02:00 - WARNING - Usuário não encontrado: 456
+```
+
+---
+
+## 📁 Arquivo de Log
+
+Os logs são armazenados no arquivo:
+
+```
+app.log
+```
+
+---
+
+## 🚫 Observação
+
+O arquivo `app.log` está listado no `.gitignore` e não é enviado para o repositório, pois contém informações de execução da aplicação.
+
+---
+
 # 🌐 Versionamento com Git e GitHub
 
 ## Inicializar repositório
@@ -225,6 +293,7 @@ venv/
 __pycache__/
 *.pyc
 .env
+app.log
 ```
 
 ---
