@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, status, Response
 from pydantic import BaseModel
 import uuid
 import logging
+from datetime import date
 
 logging.basicConfig(
     level=logging.INFO,
@@ -15,13 +16,25 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 
 
+# 🔥 NOVO SCHEMA
 class Usuario(BaseModel):
     nome: str
     email: str
-    idade: int
+    data_nascimento: date
 
 
 usuarios = []
+
+
+# 🔥 FUNÇÃO PARA CALCULAR IDADE
+def calcular_idade(data_nascimento: date) -> int:
+    hoje = date.today()
+    idade = hoje.year - data_nascimento.year
+
+    if (hoje.month, hoje.day) < (data_nascimento.month, data_nascimento.day):
+        idade -= 1
+
+    return idade
 
 
 # 🔍 GET - listar todos
@@ -58,6 +71,15 @@ def buscar_usuario(usuario_id: str):
 def criar_usuario(usuario: Usuario):
     logger.info(f"Tentando criar usuário com email: {usuario.email}")
 
+    idade = calcular_idade(usuario.data_nascimento)
+
+    if idade < 18:
+        logger.warning("Tentativa de cadastro de menor de idade")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Apenas acima de 18 anos é permitido",
+        )
+
     for u in usuarios:
         if u["email"] == usuario.email:
             logger.warning(f"Email já cadastrado: {usuario.email}")
@@ -80,20 +102,29 @@ def criar_usuario(usuario: Usuario):
 def atualizar_usuario(usuario_id: str, dados: Usuario):
     logger.info(f"Tentando atualizar usuário ID: {usuario_id}")
 
+    idade = calcular_idade(dados.data_nascimento)
+
+    if idade < 18:
+        logger.warning("Tentativa de atualização para menor de idade")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Apenas acima de 18 anos é permitido",
+        )
+
     for usuario in usuarios:
         if usuario["id"] == usuario_id:
 
             if (
                 usuario["nome"] == dados.nome
                 and usuario["email"] == dados.email
-                and usuario["idade"] == dados.idade
+                and usuario["data_nascimento"] == dados.data_nascimento
             ):
                 logger.info(f"Nenhuma alteração para usuário ID: {usuario_id}")
                 return Response(status_code=status.HTTP_204_NO_CONTENT)
 
             usuario["nome"] = dados.nome
             usuario["email"] = dados.email
-            usuario["idade"] = dados.idade
+            usuario["data_nascimento"] = dados.data_nascimento
 
             logger.info(f"Usuário atualizado: {usuario_id}")
 
