@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, status, Response, Depends
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 import uuid
 import logging
 from datetime import date
@@ -38,9 +39,14 @@ def listar_usuarios(db: Session = Depends(get_db)):
 
 @router.get("/usuarios/{usuario_id}", response_model=UsuarioResponse)
 def buscar_usuario(usuario_id: str, db: Session = Depends(get_db)):
-    usuario = db.query(UsuarioModel).filter(UsuarioModel.id == usuario_id).first()
+    logger.info(f"Buscando usuário ID: {usuario_id}")
+
+    usuario = db.query(UsuarioModel).filter(
+        UsuarioModel.id == usuario_id
+    ).first()
 
     if not usuario:
+        logger.warning(f"Usuário não encontrado: {usuario_id}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Usuário não encontrado"
@@ -49,11 +55,18 @@ def buscar_usuario(usuario_id: str, db: Session = Depends(get_db)):
     return usuario
 
 
-@router.post("/usuarios", status_code=status.HTTP_201_CREATED, response_model=UsuarioResponse)
+@router.post(
+    "/usuarios",
+    status_code=status.HTTP_201_CREATED,
+    response_model=UsuarioResponse
+)
 def criar_usuario(usuario: Usuario, db: Session = Depends(get_db)):
+    logger.info(f"Tentando criar usuário com email: {usuario.email}")
+
     idade = calcular_idade(usuario.data_nascimento)
 
     if idade < 18:
+        logger.warning("Tentativa de cadastro de menor de idade")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Apenas acima de 18 anos é permitido"
@@ -64,6 +77,7 @@ def criar_usuario(usuario: Usuario, db: Session = Depends(get_db)):
     ).first()
 
     if usuario_existente:
+        logger.warning(f"Email já cadastrado: {usuario.email}")
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Email já cadastrado"
@@ -76,11 +90,23 @@ def criar_usuario(usuario: Usuario, db: Session = Depends(get_db)):
         data_nascimento=usuario.data_nascimento
     )
 
-    db.add(novo_usuario)
-    db.commit()
-    db.refresh(novo_usuario)
+    try:
+        db.add(novo_usuario)
+        db.commit()
+        db.refresh(novo_usuario)
 
-    return novo_usuario
+        logger.info(f"Usuário criado com ID: {novo_usuario.id}")
+
+        return novo_usuario
+
+    except SQLAlchemyError:
+        db.rollback()
+        logger.error("Erro ao salvar usuário no banco de dados")
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro ao salvar usuário no banco de dados"
+        )
 
 
 @router.put("/usuarios/{usuario_id}", response_model=UsuarioResponse)
@@ -89,17 +115,23 @@ def atualizar_usuario(
     dados: Usuario,
     db: Session = Depends(get_db)
 ):
+    logger.info(f"Tentando atualizar usuário ID: {usuario_id}")
+
     idade = calcular_idade(dados.data_nascimento)
 
     if idade < 18:
+        logger.warning("Tentativa de atualização para menor de idade")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Apenas acima de 18 anos é permitido"
         )
 
-    usuario = db.query(UsuarioModel).filter(UsuarioModel.id == usuario_id).first()
+    usuario = db.query(UsuarioModel).filter(
+        UsuarioModel.id == usuario_id
+    ).first()
 
     if not usuario:
+        logger.warning(f"Usuário não encontrado para atualização: {usuario_id}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Usuário não encontrado"
@@ -110,29 +142,59 @@ def atualizar_usuario(
         and usuario.email == dados.email
         and usuario.data_nascimento == dados.data_nascimento
     ):
+        logger.info(f"Nenhuma alteração para usuário ID: {usuario_id}")
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
-    usuario.nome = dados.nome
-    usuario.email = dados.email
-    usuario.data_nascimento = dados.data_nascimento
+    try:
+        usuario.nome = dados.nome
+        usuario.email = dados.email
+        usuario.data_nascimento = dados.data_nascimento
 
-    db.commit()
-    db.refresh(usuario)
+        db.commit()
+        db.refresh(usuario)
 
-    return usuario
+        logger.info(f"Usuário atualizado: {usuario_id}")
+
+        return usuario
+
+    except SQLAlchemyError:
+        db.rollback()
+        logger.error(f"Erro ao atualizar usuário ID: {usuario_id}")
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro ao atualizar usuário no banco de dados"
+        )
 
 
 @router.delete("/usuarios/{usuario_id}", status_code=status.HTTP_204_NO_CONTENT)
 def deletar_usuario(usuario_id: str, db: Session = Depends(get_db)):
-    usuario = db.query(UsuarioModel).filter(UsuarioModel.id == usuario_id).first()
+    logger.info(f"Tentando deletar usuário ID: {usuario_id}")
+
+    usuario = db.query(UsuarioModel).filter(
+        UsuarioModel.id == usuario_id
+    ).first()
 
     if not usuario:
+        logger.warning(f"Usuário não encontrado para deleção: {usuario_id}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Usuário não encontrado"
         )
 
-    db.delete(usuario)
-    db.commit()
+    try:
+        db.delete(usuario)
+        db.commit()
 
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+        logger.info(f"Usuário deletado: {usuario_id}")
+
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    except SQLAlchemyError:
+        db.rollback()
+        logger.error(f"Erro ao deletar usuário ID: {usuario_id}")
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro ao deletar usuário no banco de dados"
+        )
